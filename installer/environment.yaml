@@ -1,0 +1,12 @@
+# Use this file to create an Anaconda environment with:
+# %> conda env create -f environment.yml [-n better_name]
+
+# It does NOT install wuw itself, so you can use this as a development environment.
+
+
+name: wuw
+channels:
+  - conda-forge
+  
+dependencies:
+  - python-docx
