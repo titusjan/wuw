@@ -1,4 +1,4 @@
-""" Word under water
+""" Word under water.
 
     Looking at the structure of Word documents.
 
