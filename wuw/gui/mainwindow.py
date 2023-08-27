@@ -2,20 +2,19 @@
 """
 
 import base64
-import cProfile
 import logging
 import os.path
-import pstats
-from functools import partial
 
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt, QUrl, Slot
 from PySide6.QtGui import QAction
 
+from wuw.be.doc import read_document
 from wuw.be.info import DEBUGGING, PROJECT_NAME, VERSION
+from wuw.gui.central import CentralWidget
 from wuw.gui.misc import getWidgetGeom, getWidgetState
-from wuw.utils.dirs import appLogDirectory
-from wuw.utils.misc import stringToIdentifier
+from wuw.utils.dirs import appLogDirectory, appConfigDirectory, homeDirectory
+from wuw.utils.misc import stringToIdentifier, ConfigDict
 
 logger = logging.getLogger(__name__)
 
@@ -24,20 +23,21 @@ logger = logging.getLogger(__name__)
 # pylint: disable=too-many-ancestors, too-many-instance-attributes, too-many-public-methods, attribute-defined-outside-init
 
 
-class MainWindow(QtWidgets.QMainWindow):
-    """ Main application window.
+DEFAULT_FILE_DIR = homeDirectory()
+
+class BaseWindow(QtWidgets.QMainWindow):
+    """ Application window base class
     """
     __numInstances = 0
 
-    def __init__(self, argosApplication):
+    def __init__(self, mainApplication):
         """ Constructor
-            :param reset: If true the persistent settings, such as column widths, are reset.
         """
-        super(MainWindow, self).__init__()
-        self._windowNumber = MainWindow.__numInstances # Used only for debugging
-        MainWindow.__numInstances += 1
+        super().__init__()
+        self._windowNumber = BaseWindow.__numInstances # Used only for debugging
+        BaseWindow.__numInstances += 1
 
-        self._argosApplication = argosApplication
+        self._mainApplication = mainApplication
 
         self.setDockNestingEnabled(False)
 
@@ -56,10 +56,10 @@ class MainWindow(QtWidgets.QMainWindow):
         center = desktopRect.center()
         self.move(round(center.x() - self.width () * 0.5), round(center.y() - self.height() * 0.5))
 
-        self.__setupActions()
-        self.__setupMenus()
-        self.__setupViews()
-        self.__setupDockWidgets()
+        self._setupActions()
+        self._setupMenus()
+        self._setupViews()
+        self._setupDockWidgets()
         self.updateWindowTitle()
 
 
@@ -70,15 +70,6 @@ class MainWindow(QtWidgets.QMainWindow):
         logger.debug("Finalizing: {}".format(self))
 
 
-    def __setupViews(self):
-        """ Creates the UI widgets.
-        """
-        self.mainWidget = QtWidgets.QWidget()
-        self.mainLayout = QtWidgets.QVBoxLayout(self.mainWidget)
-        self.mainLayout.setContentsMargins(0, 0, 0, 0)
-        self.mainLayout.setSpacing(0)
-        self.setCentralWidget(self.mainWidget)
-
 
     def __addTableHeadersSubMenu(self, menuTitle, treeView):
         """ Adds a sub menu to the View | Table Headers menu with actions to show/hide columns
@@ -88,7 +79,7 @@ class MainWindow(QtWidgets.QMainWindow):
             subMenu.addAction(action)
 
 
-    def __setupActions(self):
+    def _setupActions(self):
         """ Creates actions that are always usable, even if they are not added to the main menu.
 
             Some actions are only added to the menu in debugging mode.
@@ -104,14 +95,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.activateWindowAction.setShortcut(QtGui.QKeySequence(
                 "Alt+{}".format(self.windowNumber)))
 
-        self.myTestAction = QAction("My Test", self)
-        self.myTestAction.setToolTip("Ad-hoc test procedure for debugging.")
-        self.myTestAction.setShortcut("Meta+T")
-        self.myTestAction.triggered.connect(self.myTest)
-        self.addAction(self.myTestAction)
 
-
-    def __setupMenus(self):
+    def _setupMenus(self):
         """ Sets up the main menu.
         """
         # Don't use self.menuBar(), on OS-X this is not shared across windows.
@@ -122,18 +107,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
         ### File Menu ###
 
-        fileMenu = menuBar.addMenu("&File")
-        fileMenu.addAction("Close &Window", self.close, QtGui.QKeySequence.Close)
+        self.fileMenu = menuBar.addMenu("&File")
 
-        fileMenu.addSeparator()
+        self.fileMenuSeparator = self.fileMenu.addSeparator()
 
-        self.openRecentMenu = fileMenu.addMenu("Open Recent")
-        self.openRecentMenu.aboutToShow.connect(self._repopulateOpenRecentMenu)
-
-        fileMenu.addSeparator()
-
-        fileMenu.addSeparator()
-        fileMenu.addAction("E&xit", self.argosApplication.quit, 'Ctrl+Q')
+        self.fileMenu.addAction("Close &Window", self.close, QtGui.QKeySequence.Close)
+        self.fileMenu.addAction("E&xit", self.mainApplication.quit, 'Ctrl+Q')
 
         ### View Menu ###
 
@@ -152,22 +131,29 @@ class MainWindow(QtWidgets.QMainWindow):
 
         ### Help Menu ###
         menuBar.addSeparator()
-        helpMenu = menuBar.addMenu("&Help")
+        self.helpMenu = menuBar.addMenu("&Help")
 
-        helpMenu.addSeparator()
+        self.helpMenu.addSeparator()
 
-        helpMenu.addAction(
-            "Show Log Files...",
-            lambda: self.openInExternalApp(appLogDirectory()))
+        # self.helpMenu.addAction(
+        #     "Show Log Files...",
+        #     lambda: self.openInExternalApp(appLogDirectory()))
 
-        helpMenu.addAction('&About...', self.about)
-
-        if DEBUGGING:
-            helpMenu.addSeparator()
-            helpMenu.addAction(self.myTestAction)
+        self.helpMenu.addAction(
+            "Show Config Files...",
+            lambda: self.openInExternalApp(appConfigDirectory()))
 
 
-    def __setupDockWidgets(self):
+        self.helpMenu.addAction('&About...', self.about)
+
+
+    def _setupViews(self):
+        """ Creates the UI widgets.
+        """
+        pass
+
+
+    def _setupDockWidgets(self):
         """ Sets up the dock widgets. Must be called after the menu is setup.
         """
         pass
@@ -184,10 +170,10 @@ class MainWindow(QtWidgets.QMainWindow):
         return self._windowNumber
 
     @property
-    def argosApplication(self):
-        """ The ArgosApplication to which this window belongs.
+    def mainApplication(self):
+        """ The MainApplication to which this window belongs.
         """
-        return self._argosApplication
+        return self._mainApplication
 
     ###########
     # Methods #
@@ -232,7 +218,7 @@ class MainWindow(QtWidgets.QMainWindow):
         title = "{} #{}".format(PROJECT_NAME, self.windowNumber)
 
         # Display settings file name in title bar if it's not the default
-        settingsFile = os.path.basename(self.argosApplication.settingsFile)
+        settingsFile = os.path.basename(self.mainApplication.settingsFile)
         if settingsFile != 'settings.json':
             title = "{} -- {}".format(title, settingsFile)
 
@@ -275,7 +261,7 @@ class MainWindow(QtWidgets.QMainWindow):
             logger.error(msg.strip('\n'))
 
 
-    def marshall(self):
+    def marshall(self) -> ConfigDict:
         """ Returns a dictionary to save in the persistent settings
         """
         layoutCfg = dict(
@@ -289,7 +275,7 @@ class MainWindow(QtWidgets.QMainWindow):
         return cfg
 
 
-    def unmarshall(self, cfg):
+    def unmarshall(self, cfg: ConfigDict) -> None:
         """ Initializes itself from a config dict form the persistent settings.
         """
         layoutCfg = cfg.get('layout', {})
@@ -316,7 +302,7 @@ class MainWindow(QtWidgets.QMainWindow):
             logger.debug("Window activated: {}".format(self.windowNumber))
             self.activateWindowAction.setChecked(True)
 
-        return super(MainWindow, self).event(ev);
+        return super().event(ev)
 
 
     def closeEvent(self, event):
@@ -327,9 +313,9 @@ class MainWindow(QtWidgets.QMainWindow):
         # Save settings must be called here, at the point that there is still a windows open.
         # We can't use the QApplication.aboutToQuit signal because at that point the windows have
         # been closed
-        self.argosApplication.saveSettingsIfLastWindow()
+        self.mainApplication.saveSettingsIfLastWindow()
         self.finalize()
-        self.argosApplication.removeMainWindow(self)
+        self.mainApplication.removeMainWindow(self)
         event.accept()
         logger.debug("closeEvent accepted")
 
@@ -338,14 +324,116 @@ class MainWindow(QtWidgets.QMainWindow):
     def about(self):
         """ Shows the about message window.
         """
-        QtWidgets.QMessageBox.about(self, "About {}".format(PROJECT_NAME),
-                                    f"{PROJECT_NAME} version: {VERSION}")
+        QtWidgets.QMessageBox.about(
+            self, "About {}".format(PROJECT_NAME), f"{PROJECT_NAME} version: {VERSION}")
 
 
-    @Slot()
+
+class MainWindow(BaseWindow):
+    """ Main window for WUW
+    """
+    def __init__(self, mainApplication):
+        """ Constructor
+        """
+        super().__init__(mainApplication)
+        self._fileDialogDir = DEFAULT_FILE_DIR
+
+
+    def _setupActions(self):
+        """ Creates actions that are always usable, even if they are not added to the main menu.
+
+            Some actions are only added to the menu in debugging mode.
+        """
+        super()._setupActions()
+
+        self.openFileAction = QAction("&Open...", self)
+        self.openFileAction.setToolTip("Opens a Word document.")
+        self.openFileAction.setShortcut("Ctrl+O")
+        self.openFileAction.triggered.connect(self.openFileWithDialog)
+        self.addAction(self.openFileAction)
+
+        self.myTestAction = QAction("My Test", self)
+        self.myTestAction.setToolTip("Ad-hoc test procedure for debugging.")
+        self.myTestAction.setShortcut("Meta+T")
+        self.myTestAction.triggered.connect(self.myTest)
+        self.addAction(self.myTestAction)
+
+
+    def _setupMenus(self):
+        """ Sets up the main menu.
+        """
+        super()._setupMenus()
+
+        self.fileMenu.insertAction(self.fileMenuSeparator, self.openFileAction)
+
+        # self.openRecentMenu = self.fileMenu.addMenu("Open Recent")
+        # self.openRecentMenu.aboutToShow.connect(self._repopulateOpenRecentMenu)
+
+        if DEBUGGING:
+            self.helpMenu.addSeparator()
+            self.helpMenu.addAction(self.myTestAction)
+
+
+    def _setupViews(self):
+        """ Creates the UI widgets.
+        """
+        super()._setupViews()
+
+        self.mainWidget = CentralWidget()
+        self.setCentralWidget(self.mainWidget)
+
+
+
+    def marshall(self) -> ConfigDict:
+        """ Returns a dictionary to save in the persistent settings
+        """
+        cfg = super().marshall()
+        cfg['fileDialogDir'] = self._fileDialogDir
+        return cfg
+
+
+    def unmarshall(self, cfg: ConfigDict) -> None:
+        """ Initializes itself from a config dict form the persistent settings.
+        """
+        super().unmarshall(cfg)
+        self._fileDialogDir = cfg.get('fileDialogDir', DEFAULT_FILE_DIR)
+
+
     def myTest(self):
         """ Function for small ad-hoc tests that can be called from the menu.
         """
         logger.info("--------- myTest function called --------------------")
 
 
+    @Slot(bool)
+    def openFileWithDialog(self):
+        """ Opens a Word document.
+
+            If the fileName is None, the user is asked the file via a dialog window.
+        """
+        logger.debug(f"Opening file dialog in: {self._fileDialogDir}")
+        fileName, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self, "caption", self._fileDialogDir, "Word documents (*.docx)")
+
+        if not fileName:
+            logger.debug("Selection canceled")
+            return
+
+        fileName = os.path.normpath(os.path.abspath(fileName))
+        self._fileDialogDir = os.path.dirname(fileName)
+
+        # Only add files that were added via the dialog box (not via the command line).
+        #self._mainApplication.addToRecentFiles(fileName)
+
+        self.openFile(fileName)
+
+
+    @Slot(bool)
+    def openFile(self, fileName: str=None):
+        """ Opens a Word document.
+
+            If the fileName is None, the user is asked the file via a dialog window.
+        """
+        logger.info(f"Opening: {fileName}")
+        document = read_document(fileName)
+        self.mainWidget.setDocument(document)

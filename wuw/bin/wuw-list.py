@@ -7,10 +7,9 @@ import sys
 from io import BytesIO
 
 from docx import Document
+from wuw.be.info import VERSION
 
 logger = logging.getLogger()
-
-VERSION = '0.0.1dev'
 
 def read_document(file_name: str) -> Document:
     """ Opens the file read-only as a Python-docx document.
@@ -35,12 +34,6 @@ def list_structure(file_name:str) -> None:
         print(repr(paragraph.text))
 
 
-def browse_structure(file_name:str) -> None:
-    """ Uses the object browser to brawse the document.
-    """
-    from objbrowser import browse
-    document = read_document(file_name)
-    browse(locals())
 
 
 def main():
@@ -56,11 +49,6 @@ def main():
     parser.add_argument(dest='file_name', metavar='FILE', nargs='?',
         help="""File that will be opened.""")
 
-    parser.add_argument('-b', '--browse', action = 'store_true',
-        help="Uses Object Browser to browse the word document."
-             "See https://github.com/titusjan/objbrowser.")
-
-
     args = parser.parse_args()
 
     if args.version:
@@ -72,10 +60,7 @@ def main():
         sys.exit(2)
 
     file_name = os.path.normpath(os.path.abspath(args.file_name))
-    if args.browse:
-        browse_structure(file_name)
-    else:
-        list_structure(file_name)
+    list_structure(file_name)
 
 
 

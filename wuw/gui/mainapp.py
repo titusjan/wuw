@@ -20,6 +20,7 @@ from wuw.utils.dirs import normRealPath, ensureFileExists, appConfigDirectory
 
 
 from wuw.gui.misc import handleException
+from wuw.utils.misc import ConfigDict
 
 logger = logging.getLogger(__name__)
 
@@ -219,7 +220,7 @@ class MainApp(QtCore.QObject):
         return cfg
 
 
-    def marshall(self):
+    def marshall(self) -> ConfigDict:
         """ Returns a dictionary to save in the persistent settings
         """
         cfg = {}
@@ -238,7 +239,7 @@ class MainApp(QtCore.QObject):
         return cfg
 
 
-    def unmarshall(self, cfg):
+    def unmarshall(self, cfg: ConfigDict) -> None:
         """ Initializes itself from a config dict form the persistent settings.
         """
         self._recentFiles = cfg.get('recent_files', [])
@@ -326,11 +327,8 @@ class MainApp(QtCore.QObject):
 
 
     @Slot()
-    def addNewMainWindow(self, cfg=None, inspectorFullName=None):
+    def addNewMainWindow(self, cfg=None):
         """ Creates and shows a new MainWindow.
-
-            If inspectorFullName is set, it will set the identifier from that name.
-            If the inspector identifier is not found in the registry, a KeyError is raised.
         """
         mainWindow = MainWindow(self)
         self.mainWindows.append(mainWindow)

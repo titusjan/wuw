@@ -5,10 +5,11 @@ import pprint
 import re
 
 from html import escape
-from typing import TypeVar, List, Any, Dict
+from typing import TypeAlias, Any, Dict
 
 logger = logging.getLogger(__name__)
 
+ConfigDict: TypeAlias = Dict[str, Any]
 
 
 def stringToIdentifier(s: str, white_space_becomes: str = '_') -> str:

@@ -4,34 +4,14 @@ import argparse
 import logging
 import os.path
 import sys
-from io import BytesIO
 
-from PySide6 import QtWidgets
-from docx import Document
-
-from wuw.be.info import PROJECT_NAME
+from wuw.be.doc import read_document
+from wuw.be.info import PROJECT_NAME, VERSION
 from wuw.gui.mainapp import MainApp, qApplicationSingleton
-from wuw.gui.misc import setApplicationQtStyle, setApplicationStyleSheet, \
-    safeSetApplicationStyleSheet, safeSetApplicationQtStyle
+from wuw.gui.misc import safeSetApplicationStyleSheet, safeSetApplicationQtStyle
 from wuw.utils.dirs import resource_directory
 
 logger = logging.getLogger()
-
-VERSION = '0.0.1dev'
-
-def read_document(file_name: str) -> Document:
-    """ Opens the file read-only as a Python-docx document.
-
-        It seems that you can't open a Word document on the OneDrive readonly if it is also opened
-        in Word itself. When the document is saved only locally, you can.
-    """
-    logger.info(f"Opening {file_name}")
-    assert os.path.exists(file_name), f"File does not exist: {file_name}"
-    with open(file_name, 'rb') as file:
-        source_stream = BytesIO(file.read())
-    document = Document(source_stream)
-    source_stream.close()
-    return document
 
 
 def browse_structure(file_name:str) -> None:
@@ -72,6 +52,8 @@ def startGui(args: argparse.Namespace):
 
 
 def main():
+    """ Main entry point
+    """
     # "D:\OneDrive - SPECTRAL Industries\Data\wuw_docs\simple.docx"
     aboutStr = "{} version: {}".format("argos_make_wrappers", VERSION)
     logger.info(aboutStr)
