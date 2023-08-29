@@ -1,7 +1,9 @@
 """ Widgets for showing the document structure.
 """
-
+import cProfile
 import logging
+import os.path
+import pstats
 
 from PySide6 import QtCore, QtWidgets
 from PySide6.QtCore import Qt, Signal
@@ -10,7 +12,7 @@ from docx import Document as createDocument
 from docx.document import Document
 from docx.text.paragraph import Paragraph
 
-
+from wuw.be.info import PROFILING
 from wuw.gui.togglecolumn import ToggleColumnTableView
 from wuw.utils.cls import check_type
 
@@ -64,6 +66,21 @@ class DocumentTableModel(QtCore.QAbstractTableModel):
         #   ✔︎ Heavy check mark Unicode: U+2714
         self.checkmarkChar = '✓︎'
 
+        if PROFILING:
+            # Profiler that measures the drawing of the inspectors.
+            self._profFileName = "wuw.prof"
+
+            logger.warning("Profiling is on for {}. This may cost a bit of CPU time.")
+            self._profiler = cProfile.Profile()
+
+    def finalize(self):
+        if PROFILING:
+            logger.info("Saving profiling information to {}"
+                        .format(os.path.abspath(self._profFileName)))
+            self._profiler.create_stats()
+
+            profStats = pstats.Stats(self._profiler)
+            profStats.dump_stats(self._profFileName)
 
     @property
     def document(self) -> Document:
@@ -161,24 +178,33 @@ class DocumentTableModel(QtCore.QAbstractTableModel):
 
         match role:
             case Qt.DisplayRole | self.SORT_ROLE | Qt.ToolTipRole:
-                paragraph = self.paragraphs[row]
+                try:
+                    if PROFILING:
+                        self._profiler.enable()
 
-                match col:
-                    case self.COL_NAME:
-                        return paragraph.text
-                    case self.COL_JUSTIFICATION:
-                        # TODO: Is there a difference with paragraph_format.alignment?
-                        return str(paragraph.alignment)
-                    case self.COL_ALIGNMENT:
-                        return str(paragraph.paragraph_format.alignment)
-                    case self.COL_1ST_LINE_INDENT:
-                        return str(paragraph.paragraph_format.first_line_indent)
-                    case self.COL_LEFT_INDENT:
-                        return str(paragraph.paragraph_format.left_indent)
-                    case self.COL_RIGHT_INDENT:
-                        return str(paragraph.paragraph_format.right_indent)
-                    case _ :
-                        raise AssertionError("Unexpected column: {}".format(col))
+                    return "fna"
+                    paragraph = self.paragraphs[row]
+
+                    match col:
+                        case self.COL_NAME:
+                            return paragraph.text
+                        case self.COL_JUSTIFICATION:
+                            # TODO: Is there a difference with paragraph_format.alignment?
+                            return str(paragraph.alignment)
+                        case self.COL_ALIGNMENT:
+                            return str(paragraph.paragraph_format.alignment)
+                        case self.COL_1ST_LINE_INDENT:
+                            return str(paragraph.paragraph_format.first_line_indent)
+                        case self.COL_LEFT_INDENT:
+                            return str(paragraph.paragraph_format.left_indent)
+                        case self.COL_RIGHT_INDENT:
+                            return str(paragraph.paragraph_format.right_indent)
+                        case _ :
+                            raise AssertionError("Unexpected column: {}".format(col))
+
+                finally:
+                    if PROFILING:
+                        self._profiler.disable()
 
             case Qt.TextAlignmentRole:
                 return _ALIGN_STRING

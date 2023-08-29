@@ -5,7 +5,7 @@ import sys
 # We bypass the argparse mechanism in main.py because this import is executed before main.main()
 DEBUGGING = ('-d' in sys.argv or '--debug' in sys.argv)
 TESTING = True # add some test menu options
-PROFILING = False# and DEBUGGING
+PROFILING = True# and DEBUGGING
 
 VERSION = '0.1.0'
 REPO_NAME = "wuw"

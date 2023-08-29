@@ -22,7 +22,6 @@ logger = logging.getLogger(__name__)
 # ancestors public methods and attributes.
 # pylint: disable=too-many-ancestors, too-many-instance-attributes, too-many-public-methods, attribute-defined-outside-init
 
-
 DEFAULT_FILE_DIR = homeDirectory()
 
 class BaseWindow(QtWidgets.QMainWindow):
@@ -337,6 +336,11 @@ class MainWindow(BaseWindow):
         """
         super().__init__(mainApplication)
         self._fileDialogDir = DEFAULT_FILE_DIR
+
+
+    def finalize(self):
+        self.mainWidget.finalize()
+        super().finalize()
 
 
     def _setupActions(self):

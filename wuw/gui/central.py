@@ -26,7 +26,12 @@ class CentralWidget(QtWidgets.QWidget):
         self.mainLayout.addWidget(self.tableViewer)
 
 
+    def finalize(self):
+        """ Clean up resources.
+        """
+        self.tableModel.finalize()
+
+
     def setDocument(self, document: Document) -> None:
         self.tableModel.document = document
-
 
