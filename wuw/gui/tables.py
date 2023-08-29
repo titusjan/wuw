@@ -16,7 +16,11 @@ from wuw.utils.cls import check_type
 
 logger = logging.getLogger(__name__)
 
-_HW_BOOL = 80 # header width for boolean columns
+# Header widths for different column types
+_HW_STR = 100 # Small string label
+_HW_BOOL = 80
+_HW_INT = 100
+
 _ALIGN_STRING = int(Qt.AlignVCenter | Qt.AlignLeft)
 _ALIGN_NUMBER = int(Qt.AlignVCenter | Qt.AlignRight)
 _ALIGN_BOOLEAN = int(Qt.AlignVCenter | Qt.AlignHCenter)
@@ -28,13 +32,16 @@ ALL_ITEMS_STR = "All"
 class DocumentTableModel(QtCore.QAbstractTableModel):
     """ A table model that maps the document to a table.
     """
-    HEADERS = ('Text', 'Justification')
+    HEADERS = ('Text', 'Justification', 'Alignment',
+               '1st line indent', 'Left indent', 'Right indent')
 
-    HEADER_TOOL_TIPS = ('Text', 'Justification')
+    HEADER_TOOL_TIPS = HEADERS
 
-    (COL_NAME, COL_JUSTIFICATION) = range(len(HEADERS))
+    (COL_NAME, COL_JUSTIFICATION, COL_ALIGNMENT,
+     COL_1ST_LINE_INDENT, COL_LEFT_INDENT, COL_RIGHT_INDENT) = range(len(HEADERS))
 
-    DEFAULT_WIDTHS = [400, 100]
+    DEFAULT_WIDTHS = [400, _HW_STR, _HW_STR,
+                      _HW_INT, _HW_INT, _HW_INT]
 
     SORT_ROLE = Qt.UserRole
 
@@ -152,28 +159,29 @@ class DocumentTableModel(QtCore.QAbstractTableModel):
         else:
             row, col = pos
 
-        if role == Qt.DisplayRole or role == self.SORT_ROLE or role == Qt.ToolTipRole:
-            paragraph = self.paragraphs[row]
+        match role:
+            case Qt.DisplayRole | self.SORT_ROLE | Qt.ToolTipRole:
+                paragraph = self.paragraphs[row]
 
-            if col == self.COL_NAME:
-                return paragraph.text
+                match col:
+                    case self.COL_NAME:
+                        return paragraph.text
+                    case self.COL_JUSTIFICATION:
+                        # TODO: Is there a difference with paragraph_format.alignment?
+                        return str(paragraph.alignment)
+                    case self.COL_ALIGNMENT:
+                        return str(paragraph.paragraph_format.alignment)
+                    case self.COL_1ST_LINE_INDENT:
+                        return str(paragraph.paragraph_format.first_line_indent)
+                    case self.COL_LEFT_INDENT:
+                        return str(paragraph.paragraph_format.left_indent)
+                    case self.COL_RIGHT_INDENT:
+                        return str(paragraph.paragraph_format.right_indent)
+                    case _ :
+                        raise AssertionError("Unexpected column: {}".format(col))
 
-            elif col == self.COL_JUSTIFICATION:
-                print(type(paragraph.alignment))
-                return str(paragraph.alignment)
-
-            else:
-                raise AssertionError("Unexpected column: {}".format(col))
-
-        # elif role == Qt.TextAlignmentRole:
-        #     return ALL_ITEMS_STR
-            # if col in (self.COL_NAME, self.COL_TEXT, self.COL_NAME, self.COL_TYPE):
-            #     return _ALIGN_STRING
-            # else:
-            #     raise AssertionError("Unexpected column: {}".format(col))
-
-        elif role == Qt.ToolTipRole:
-            return "tooltip"
+            case Qt.TextAlignmentRole:
+                return _ALIGN_STRING
 
         return None
 
@@ -188,12 +196,13 @@ class DocumentTableModel(QtCore.QAbstractTableModel):
             return None
 
         if orientation == Qt.Horizontal:
-            if role == Qt.DisplayRole:
-                return self.HEADERS[section]
-            elif role == Qt.ToolTipRole: # doesn't seem to work (tried only on OS-X)
-                return self.HEADER_TOOL_TIPS[section]
-            else:
-                assert False, "Unexpected role: {}".format(role)
+            match role:
+                case Qt.DisplayRole:
+                    return self.HEADERS[section]
+                case Qt.ToolTipRole: # doesn't seem to work (tried only on OS-X)
+                    return self.HEADER_TOOL_TIPS[section]
+                case _:
+                    assert False, "Unexpected role: {}".format(role)
         else:
             return str(section)
 
@@ -236,8 +245,10 @@ class DocumentTableViewer(ToggleColumnTableView):
         self.verticalHeader().show()
         horHeader = self.horizontalHeader()
         horHeader.setSectionsMovable(True)
+        horHeader.setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Interactive)
+        # This unfortunately does not work intuitively when resizing headers.
+        #horHeader.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeMode.Stretch)
         horHeader.setStretchLastSection(True)
-        horHeader.setSectionResizeMode(QtWidgets.QHeaderView.Interactive) # don't set to stretch
 
         for col, width in enumerate(DocumentTableModel.DEFAULT_WIDTHS):
             horHeader.resizeSection(col, width)
