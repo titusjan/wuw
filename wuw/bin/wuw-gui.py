@@ -25,10 +25,8 @@ def browse_structure(file_name:str) -> None:
 def startGui(args: argparse.Namespace):
     """ Creates the main app and start the Qt GUI
     """
-    file_name = os.path.normpath(os.path.abspath(args.file_name))
-
     # Apparently, in Qt6 you need to create the QApplication before you can create a widget.
-    qApp = qApplicationSingleton()
+    _qApp = qApplicationSingleton()
 
     qtStyle = args.qtStyle if args.qtStyle else os.environ.get("QT_STYLE_OVERRIDE", 'Fusion')
     styleSheet = args.styleSheet if args.styleSheet else os.environ.get("WUW_STYLE_SHEET", '')
@@ -40,7 +38,7 @@ def startGui(args: argparse.Namespace):
         styleSheet = os.path.abspath(styleSheet)
 
     mainApp = MainApp(settingsFile=None)
-    mainApp.loadSettings()
+    mainApp.loadSettings(fileNames=args.fileNames)
 
     safeSetApplicationQtStyle(qtStyle)
     safeSetApplicationStyleSheet(styleSheet)
@@ -63,8 +61,8 @@ def main():
     parser.add_argument('-v', '--version', action = 'store_true',
         help="Prints the program version and exits")
 
-    parser.add_argument(dest='file_name', metavar='FILE', nargs='?',
-        help="""File that will be opened.""")
+    parser.add_argument(dest='fileNames', metavar='FILES', nargs='*',
+        help="""Files that will be opened.""")
 
     parser.add_argument('-b', '--browse', action = 'store_true',
         help="Uses Object Browser to browse the word document."
@@ -85,18 +83,11 @@ def main():
     devGroup.add_argument('-d', '--debugging-mode', dest='debugging', action = 'store_true',
         help="Run Argos in debugging mode. Useful during development.")
 
-
-
     args = parser.parse_args()
 
     if args.version:
         print(aboutStr)
         sys.exit(0)
-
-    if args.file_name is None:
-        print("Please give a file name as the command line argument.", file=sys.stderr)
-        sys.exit(2)
-
 
     if args.browse:
         file_name = os.path.normpath(os.path.abspath(args.file_name))

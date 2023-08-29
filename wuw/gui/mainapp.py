@@ -239,14 +239,24 @@ class MainApp(QtCore.QObject):
         return cfg
 
 
-    def unmarshall(self, cfg: ConfigDict) -> None:
+    def unmarshall(self, cfg: ConfigDict, fileNames:list[str]=None) -> None:
         """ Initializes itself from a config dict form the persistent settings.
         """
+        fileNames = [] if fileNames is None else fileNames
         self._recentFiles = cfg.get('recent_files', [])
 
-        for winId, winCfg in cfg.get('windows', {}).items():
+        for idx, (winId, winCfg) in enumerate(cfg.get('windows', {}).items()):
             assert winId.startswith('win-'), "Win ID doesn't start with 'win-': {}".format(winId)
-            self.addNewMainWindow(cfg=winCfg)
+            try:
+                fileName = fileNames[idx]
+            except IndexError:
+                fileName = None
+            self.addNewMainWindow(cfg=winCfg, fileName=fileName)
+
+        for idx in range(len(self.mainWindows), len(fileNames)):
+            fileName = fileNames[idx]
+            logger.debug(f"Creating new window for file: {fileName}")
+            self.addNewMainWindow(cfg=None, fileName=fileName)
 
         if len(self.mainWindows) == 0:
             logger.info("No open windows in settings or command line (creating one).")
@@ -281,7 +291,7 @@ class MainApp(QtCore.QObject):
             self._settingsSaved = True
 
 
-    def loadSettings(self):
+    def loadSettings(self, fileNames:list[str]=None):
         """ Loads the settings from file and populates the application object from it.
 
             Will update the config (and make a backup of the config file) if the version number
@@ -306,7 +316,7 @@ class MainApp(QtCore.QObject):
         self._makeConfigBackup(cfg)  # If the version has changed.
         #cfg = _updateConfig(cfg)     # If the version has changed.
 
-        self.unmarshall(cfg)  # Always call unmarshall.
+        self.unmarshall(cfg, fileNames=fileNames)  # Always call unmarshall.
 
 
     def saveSettingsIfLastWindow(self):
@@ -327,7 +337,7 @@ class MainApp(QtCore.QObject):
 
 
     @Slot()
-    def addNewMainWindow(self, cfg=None):
+    def addNewMainWindow(self, cfg=None, fileName: str = None):
         """ Creates and shows a new MainWindow.
         """
         mainWindow = MainWindow(self)
@@ -338,6 +348,8 @@ class MainApp(QtCore.QObject):
 
         if cfg:
             mainWindow.unmarshall(cfg)
+
+        mainWindow.openFile(fileName)
 
         mainWindow.show()
 

@@ -435,5 +435,9 @@ class MainWindow(BaseWindow):
             If the fileName is None, the user is asked the file via a dialog window.
         """
         logger.info(f"Opening: {fileName}")
-        document = read_document(fileName)
+        if fileName is None:
+            document = None
+        else:
+            document = read_document(fileName)
+
         self.mainWidget.setDocument(document)

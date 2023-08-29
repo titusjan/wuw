@@ -28,13 +28,13 @@ ALL_ITEMS_STR = "All"
 class DocumentTableModel(QtCore.QAbstractTableModel):
     """ A table model that maps the document to a table.
     """
-    HEADERS = ('Name', 'Text', 'Type')
+    HEADERS = ('Text', 'Justification')
 
-    HEADER_TOOL_TIPS = ('Name', 'Text', 'Type')
+    HEADER_TOOL_TIPS = ('Text', 'Justification')
 
-    (COL_NAME, COL_TEXT, COL_TYPE) = range(len(HEADERS))
+    (COL_NAME, COL_JUSTIFICATION) = range(len(HEADERS))
 
-    DEFAULT_WIDTHS = [175, 100, 120]
+    DEFAULT_WIDTHS = [400, 100]
 
     SORT_ROLE = Qt.UserRole
 
@@ -72,7 +72,7 @@ class DocumentTableModel(QtCore.QAbstractTableModel):
         """
         self.beginResetModel()
         try:
-            self._document = doc
+            self._document = createDocument() if doc is None else doc
         finally:
             self.endResetModel()
 
@@ -152,29 +152,29 @@ class DocumentTableModel(QtCore.QAbstractTableModel):
         else:
             row, col = pos
 
-        if role == Qt.DisplayRole or role == self.SORT_ROLE:
-            #paragraph = self.paragraphs[row]
+        if role == Qt.DisplayRole or role == self.SORT_ROLE or role == Qt.ToolTipRole:
+            paragraph = self.paragraphs[row]
 
             if col == self.COL_NAME:
-                return "name"
+                return paragraph.text
 
-            elif col == self.COL_TEXT:
-                return "text"
-
-            elif col == self.COL_TYPE:
-                return "type"
+            elif col == self.COL_JUSTIFICATION:
+                print(type(paragraph.alignment))
+                return str(paragraph.alignment)
 
             else:
                 raise AssertionError("Unexpected column: {}".format(col))
 
-        elif role == Qt.TextAlignmentRole:
-            if col in (self.COL_NAME, self.COL_TEXT, self.COL_NAME, self.COL_TYPE):
-                return _ALIGN_STRING
-            else:
-                raise AssertionError("Unexpected column: {}".format(col))
+        # elif role == Qt.TextAlignmentRole:
+        #     return ALL_ITEMS_STR
+            # if col in (self.COL_NAME, self.COL_TEXT, self.COL_NAME, self.COL_TYPE):
+            #     return _ALIGN_STRING
+            # else:
+            #     raise AssertionError("Unexpected column: {}".format(col))
 
         elif role == Qt.ToolTipRole:
             return "tooltip"
+
         return None
 
 
@@ -225,6 +225,7 @@ class DocumentTableViewer(ToggleColumnTableView):
         self._sourceModel = model
         self.setModel(self._sourceModel)
 
+        self.setWordWrap(False)
         self.setSortingEnabled(False)
         self.setShowGrid(False)
         self.setCornerButtonEnabled(True)
@@ -232,18 +233,19 @@ class DocumentTableViewer(ToggleColumnTableView):
         self.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         self.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
 
-        self.verticalHeader().hide()
-        treeHeader = self.horizontalHeader()
-        treeHeader.setSectionsMovable(True)
-        treeHeader.setStretchLastSection(True)
-        treeHeader.setSectionResizeMode(QtWidgets.QHeaderView.Interactive) # don't set to stretch
+        self.verticalHeader().show()
+        horHeader = self.horizontalHeader()
+        horHeader.setSectionsMovable(True)
+        horHeader.setStretchLastSection(True)
+        horHeader.setSectionResizeMode(QtWidgets.QHeaderView.Interactive) # don't set to stretch
 
         for col, width in enumerate(DocumentTableModel.DEFAULT_WIDTHS):
-            treeHeader.resizeSection(col, width)
+            horHeader.resizeSection(col, width)
 
         # Make the 'name' color wider because of the legend bar.
-        treeHeader.resizeSection(
-            DocumentTableModel.COL_NAME, DocumentTableModel.DEFAULT_WIDTHS[DocumentTableModel.COL_NAME])
+        horHeader.resizeSection(
+            DocumentTableModel.COL_NAME,
+            DocumentTableModel.DEFAULT_WIDTHS[DocumentTableModel.COL_NAME])
 
         headerNames = DocumentTableModel.HEADERS
         enabled = dict((name, True) for name in headerNames)
