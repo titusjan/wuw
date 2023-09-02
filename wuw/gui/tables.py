@@ -242,13 +242,16 @@ class DocumentTableViewer(ToggleColumnTableView):
         self.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         self.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
 
-        self.verticalHeader().show()
+        verHeader = self.verticalHeader()
+        verHeader.show()
+        verHeader.setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Fixed)
+
         horHeader = self.horizontalHeader()
         horHeader.setSectionsMovable(True)
         horHeader.setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Interactive)
         # This unfortunately does not work intuitively when resizing headers.
         #horHeader.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeMode.Stretch)
-        horHeader.setStretchLastSection(True)
+        horHeader.setStretchLastSection(False)
 
         for col, width in enumerate(DocumentTableModel.DEFAULT_WIDTHS):
             horHeader.resizeSection(col, width)
